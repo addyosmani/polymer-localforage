@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>polymer-localforage</title>
+  <script src="app/bower_components/platform/platform.js"></script>
+  <link rel="import" href="polymer-localforage.html">
+  <link rel="import" href="app/bower_components/polymer-ui-toggle-button/polymer-ui-toggle-button.html">
+</head>
+<body>
+  <h1>polymer-localforage</h1>
+  <h2>A <a href="http://polymer-project.org">Polymer</a> <a href="http://github.com/addyosmani/polymer-localforage">element</a> for Mozilla's <a href="https://github.com/mozilla/localForage">localForage</a> (async storage via IndexedDB or WebSQL).</h2>
+  <polymer-element name="x-test1">
+    <template>
+      string entered below will be stored using localForage and automatically retrived from localForage when the page is reloaded<br>
+      <input value="{{value}}">
+      <polymer-localforage name="polymer-localforage-x-test1" value="{{value}}"></polymer-localforage>
+    </template>
+    <script>
+      Polymer('x-test1');
+    </script>
+  </polymer-element>
+  
+  <x-test1></x-test1>
+  <br><br>
+  
+  <polymer-element name="x-test2">
+    <template>
+      <polymer-ui-toggle-button value="{{mode}}"></polymer-ui-toggle-button>
+      <polymer-localforage name="polymer-localforage-x-test2" value="{{mode}}"></polymer-localforage>
+    </template>
+    <script>
+      Polymer('x-test2', {
+        mode: false
+      });
+    </script>
+  </polymer-element>
+  
+  <x-test2></x-test2>
+</body>
+</html>

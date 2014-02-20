@@ -1,0 +1,132 @@
+<!--
+Copyright 2013 The Polymer Authors. All rights reserved.
+Use of this source code is governed by a BSD-style
+license that can be found in the LICENSE file.
+-->
+<!--
+/**
+ * @module Polymer Elements
+ */
+/**
+ * Element access to Mozilla's localforage library.  The "name" property
+ * is the key to the data ("value" property) stored in localforage.
+ *
+ * polymer-localforage automatically saves the value to localforage when
+ * value is changed.  Note that if value is an object auto-save will be
+ * triggered only when value is a different instance.
+ *
+ * Example:
+ *
+ *     <polymer-localforage name="my-app-storage" value="{{value}}"></polymer-localforage>
+ *
+ * @class polymer-localforage
+ * @blurb Element access to localforage.
+ * @author The Polymer Authors
+ * @categories Data
+ *
+ */
+/**
+ * Fired after it is loaded from localforage.
+ * 
+ * @event polymer-localforage-load
+ */
+-->
+<link rel="import" href="app/bower_components/polymer/polymer.html">
+<script src="app/bower_components/localforage/dist/localforage.min.js"></script>
+
+<polymer-element name="polymer-localforage" attributes="name value useRaw autoSaveDisabled">
+  <template>
+    <style>
+      :host {
+        display: none;
+      }
+    </style>
+  </template>
+  <script>
+    Polymer('polymer-localforage', {
+      /**
+       * The key to the data stored in localforage.
+       *
+       * @attribute name
+       * @type string
+       * @default null
+       */
+      name: '',
+      /**
+       * The data associated with the specified name.
+       *
+       * @attribute value
+       * @type object
+       * @default null
+       */
+      value: null,
+      /**
+       * If true, the value is stored and retrieved without JSON processing.
+       *
+       * @attribute useRaw
+       * @type boolean
+       * @default false
+       */
+      useRaw: false,
+      /**
+       * If true, auto save is disabled.
+       *
+       * @attribute autoSaveDisabled
+       * @type boolean
+       * @default false
+       */
+      autoSaveDisabled: false,
+      enteredView: function() {
+        // wait for bindings are all setup
+        this.async('load');
+      },
+      valueChanged: function() {
+        if (this.loaded && !this.autoSaveDisabled) {
+          this.save();
+        }
+      },
+      load: function() {
+        var v;
+        localforage.getItem(this.name, function(val){
+          v = val;
+        //var v = localforage.getItem(this.name);
+        if (this.useRaw) {
+          this.value = v;
+        } else {
+          // localforage has a flaw that makes it difficult to determine
+          // if a key actually exists or not (getItem returns null if the
+          // key doesn't exist, which is not distinguishable from a stored
+          // null value)
+          // however, if not `useRaw`, an (unparsed) null value unambiguously
+          // signals that there is no value in storage (a stored null value would
+          // be escaped, i.e. "null")
+          // in this case we save any non-null current (default) value
+          if (v === null) {
+            if (this.value !== null) {
+              this.save();
+            }
+          } else {
+            try {
+              v = JSON.parse(v);
+            } catch(x) {
+            }
+            this.value = v;
+          }
+        }
+        this.loaded = true;
+        this.asyncFire('polymer-localforage-load');
+
+        }.bind(this));
+      },
+      /** 
+       * Saves the value to localforage.
+       *
+       * @method save
+       */
+      save: function() {
+        var v = this.useRaw ? this.value : JSON.stringify(this.value);
+        localforage.setItem(this.name, v);
+      }
+    });
+  </script>
+</polymer-element>
