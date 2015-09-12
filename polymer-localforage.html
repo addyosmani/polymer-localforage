@@ -96,12 +96,13 @@ license that can be found in the LICENSE file.
         }
       },
 
-      // observers: [
-      //   'valueChanged(value)'
-      // ],
+      observers: [
+        'valueChanged(value)'
+      ],
 
       valueChanged: function() {
-        if (this.loaded && !this.autoSaveDisabled) {
+        console.log('SAVE!', this.loaded, this.autoSaveDisabled);
+        if (!this.autoSaveDisabled) {
           this.save();
         }
       },

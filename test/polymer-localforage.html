@@ -54,7 +54,7 @@
 
           s.load();
 
-        })
+        });
 
       });
 
@@ -110,6 +110,68 @@
           s.load();
 
         })
+
+      });
+
+     });
+
+    suite('auto-save', function() {
+
+      setup(function() {
+        localStorage.clear();
+        localforage.clear();
+      });
+
+      test('is enabled by disabled', function(done) {
+
+        var s = fixture('raw');
+        var m = 'foobar';
+
+        s.value = m;
+
+        setTimeout(function() {
+
+          localforage.getItem(s.name)
+          .then(function(storedValue) {
+            expect(storedValue).to.be.equal(m);
+            done();
+          })
+          .catch(function(e) {
+            done(e);
+          });
+
+        }, 100);
+
+      });
+
+      test('can be disabled', function(done) {
+
+        var s = fixture('raw');
+        var m = 'foobar';
+
+        s.autoSaveDisabled = true;
+        s.value = m;
+
+        setTimeout(function() {
+
+          localforage.getItem(s.name)
+          .then(function(storedValue) {
+            expect(storedValue).to.be.equal('null');
+            return s.save();
+          })
+          .then(function() {
+
+            localforage.getItem(s.name)
+            .then(function(storedValue) {
+              expect(storedValue).to.be.equal(m);
+              done();
+            })
+            .catch(function(e) {
+              done(e);
+            });
+
+          });
+        }, 100);
 
       });
 
