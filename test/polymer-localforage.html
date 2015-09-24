@@ -1,0 +1,182 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>polymer-localforage</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+
+  <script src="../../webcomponentsjs/webcomponents-lite.js"></script>
+  <script src="../../web-component-tester/browser.js"></script>
+  <script src="../../test-fixture/test-fixture-mocha.js"></script>
+
+  <link rel="import" href="../../test-fixture/test-fixture.html">
+  <link rel="import" href="../polymer-localforage.html">
+</head>
+<body>
+
+  <test-fixture id="default">
+    <template>
+      <polymer-localforage name="polymer-localforage-test"></polymer-localforage>
+    </template>
+  </test-fixture>
+
+  <test-fixture id="raw">
+    <template>
+      <polymer-localforage name="polymer-localforage-test-raw" useRaw></polymer-localforage>
+    </template>
+  </test-fixture>
+  
+  <script>
+
+    suite('basic usage', function() {
+
+      setup(function() {
+        localStorage.clear();
+        localforage.clear();
+      });
+
+      test('allows to read values from localforage', function(done) {
+
+        var s = fixture('raw');
+        var m = 'hello world';
+
+        var item = localforage.setItem(s.name, m);
+        item
+        .then(function() {
+
+          var onValueChanged = function(value) {
+            expect(s.value).to.be.equal(m);
+            s.removeEventListener('value-changed', onValueChanged);
+            done();
+          };
+
+          s.addEventListener('value-changed', onValueChanged);
+
+          s.load();
+
+        });
+
+      });
+
+      test('allows to write values to localforage', function(done) {
+
+        var s = fixture('raw');
+        var m = 'foo';
+
+        s.value = m;
+        s.save()
+        .then(function() {
+
+          localforage.getItem(s.name)
+          .then(function(storedValue) {
+            expect(storedValue).to.be.equal(m);
+            done();
+          })
+          .catch(function(e) {
+            done(e);
+          });
+
+        });
+
+      });
+
+    });
+
+    suite('objects', function() {
+
+      setup(function() {
+        localStorage.clear();
+        localforage.clear();
+      });
+
+      test('can be stored', function(done) {
+
+        var s = fixture('default');
+        var m = {
+          foo: 'bar'
+        };
+
+        localforage.setItem(s.name, m)
+        .then(function() {
+
+          var onValueChanged = function() {
+            expect(s.value).to.be.deep.equal(m);
+            s.removeEventListener('value-changed', onValueChanged);
+            done();
+          };
+
+          s.addEventListener('value-changed', onValueChanged);
+
+          s.load();
+
+        })
+
+      });
+
+     });
+
+    suite('auto-save', function() {
+
+      setup(function() {
+        localStorage.clear();
+        localforage.clear();
+      });
+
+      test('is enabled by disabled', function(done) {
+
+        var s = fixture('raw');
+        var m = 'foobar';
+
+        s.value = m;
+
+        setTimeout(function() {
+
+          localforage.getItem(s.name)
+          .then(function(storedValue) {
+            expect(storedValue).to.be.equal(m);
+            done();
+          })
+          .catch(function(e) {
+            done(e);
+          });
+
+        }, 100);
+
+      });
+
+      test('can be disabled', function(done) {
+
+        var s = fixture('raw');
+        var m = 'foobar';
+
+        s.autoSaveDisabled = true;
+        s.value = m;
+
+        setTimeout(function() {
+
+          localforage.getItem(s.name)
+          .then(function(storedValue) {
+            expect(storedValue).to.be.equal('null');
+            return s.save();
+          })
+          .then(function() {
+
+            localforage.getItem(s.name)
+            .then(function(storedValue) {
+              expect(storedValue).to.be.equal(m);
+              done();
+            })
+            .catch(function(e) {
+              done(e);
+            });
+
+          });
+        }, 100);
+
+      });
+
+    });
+
+  </script>
+</body>
+</html>

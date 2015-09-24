@@ -1,0 +1,36 @@
+{
+  "name": "paper-localforage",
+  "version": "1.0.1",
+  "description": "A Polymer element for Mozilla's localForage (async storage via IndexedDB or WebSQL)",
+  "main": [
+    "polymer-localforage.html"
+  ],
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {
+    "express": "^4.12.3",
+    "web-component-tester": "git://github.com/polymer/web-component-tester.git"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "./node_modules/web-component-tester/bin/wct"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/addyosmani/polymer-localforage.git"
+  },
+  "keywords": [
+    "web-components",
+    "polymer",
+    "local-storage",
+    "localstorage",
+    "indexdb",
+    "offline-storage"
+  ],
+  "license": "http://polymer.github.io/LICENSE.txt",
+  "bugs": {
+    "url": "https://github.com/addyosmani/polymer-localforage/issues"
+  },
+  "homepage": "https://github.com/addyosmani/polymer-localforage"
+}
