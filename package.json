@@ -1,6 +1,6 @@
 {
   "name": "paper-localforage",
-  "version": "1.0.1",
+  "version": "1.0.0",
   "description": "A Polymer element for Mozilla's localForage (async storage via IndexedDB or WebSQL)",
   "main": [
     "polymer-localforage.html"
