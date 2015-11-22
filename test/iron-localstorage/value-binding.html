@@ -18,7 +18,6 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
   <script src="./../../web-component-tester/browser.js"></script>
   <script src="./../../test-fixture/test-fixture-mocha.js"></script>
 
-  <link rel="import" href="./../../test-fixture/test-fixture.html">
   <link rel="import" href="../../polymer-localforage.html">
 
 </head>
@@ -41,12 +40,12 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 
   <script>
 
-    window.localStorage.setItem('polymer-localforage-test', '{"foo":"bar"}');
     var xtest;
 
     suite('basic', function() {
 
-      suiteSetup(function() {
+      suiteSetup(function(done) {
+
         Polymer({
           is: 'x-foo',
           properties: {
@@ -65,13 +64,19 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
             }
           }
         });
-        window.localStorage.setItem('polymer-localforage-test', '{"foo":"bar"}');
-        xtest = document.querySelector('x-test');
-        xtest.$.localstorage.reload();
+        localforage.setItem('polymer-localforage-test', '{"foo":"bar"}')
+        .then(function() {
+          xtest = document.querySelector('x-test');
+          xtest.$.localstorage.reload()
+          .then(function() {
+            done();
+          });
+        });
+
       });
 
       suiteTeardown(function() {
-        window.localStorage.removeItem('polymer-localforage-test');
+        localforage.removeItem('polymer-localforage-test');
       });
 
       test('initial value', function() {
@@ -82,18 +87,26 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       test('set value', function() {
         var newValue = {'foo': 'zot'};
         xtest.value = newValue;
-        xtest.$.localstorage.flushDebouncer('save');
-        var v = window.localStorage.getItem(xtest.$.localstorage.name);
-        v = JSON.parse(v);
-        assert.equal(v.foo, newValue.foo);
+        return xtest.$.localstorage.save(true)
+        .then(function() {
+          return localforage.getItem(xtest.$.localstorage.name);
+        })
+        .then(function(v) {
+          v = JSON.parse(v);
+          assert.equal(v.foo, newValue.foo);
+        });
       });
 
       test('save', function() {
         xtest.value.foo = 'quux';
-        xtest.$.localstorage.save();
-        var v = window.localStorage.getItem(xtest.$.localstorage.name);
-        v = JSON.parse(v);
-        assert.equal(v.foo, 'quux');
+        return xtest.$.localstorage.save()
+        .then(function() {
+          return localforage.getItem(xtest.$.localstorage.name);
+        })
+        .then(function(v) {
+          v = JSON.parse(v);
+          assert.equal(v.foo, 'quux');
+        });
       });
 
     });

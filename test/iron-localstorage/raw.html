@@ -18,14 +18,13 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
   <script src="../../../web-component-tester/browser.js"></script>
   <script src="../../../test-fixture/test-fixture-mocha.js"></script>
 
-  <link rel="import" href="../../../test-fixture/test-fixture.html">
   <link rel="import" href="../../polymer-localforage.html">
 
 </head>
 <body>
 
 
-  <test-fixture id="fixture">
+  <test-fixture id="fixture-raw">
     <template>
       <polymer-localforage id="localstorage" name="polymer-localforage-test" use-raw></polymer-localforage>
     </template>
@@ -38,26 +37,32 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     suite('raw', function() {
 
       setup(function() {
-        window.localStorage.setItem('polymer-localforage-test', 'hello world');
-        document.getElementById('fixture').create();
-        storage = document.getElementById('localstorage');
-        storage.flushDebouncer('reload');
+        return localforage.setItem('polymer-localforage-test', 'hello world')
+        .then(function() {
+          storage = document.getElementById('fixture-raw').create();
+          return storage.load();
+        });
       });
 
       teardown(function() {
-        window.localStorage.removeItem('polymer-localforage-test');
+        return localforage.removeItem('polymer-localforage-test');
       });
 
       test('load', function() {
         assert.equal(storage.value, 'hello world');
       });
 
-      test('save', function() {
+      test('save', function(done) {
         var m = 'goodbye';
         storage.value = m;
-        storage.flushDebouncer('save');
-        var v = window.localStorage.getItem(storage.name);
-        assert.equal(v, m);
+        storage.save(true)
+        .then(function() {
+          localforage.getItem(storage.name)
+          .then(function(v) {
+            assert.equal(v, m);
+            done();
+          });
+        });
       });
 
     });

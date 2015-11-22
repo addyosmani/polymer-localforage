@@ -30,9 +30,14 @@
 
     suite('basic usage', function() {
 
-      setup(function() {
-        localStorage.clear();
-        localforage.clear();
+      setup(function(done) {
+        Promise.all([
+          localStorage.clear(),
+          localforage.clear()
+        ])
+        .then(function() {
+          done();
+        });
       });
 
       test('allows to read values from localforage', function(done) {
@@ -40,8 +45,7 @@
         var s = fixture('raw');
         var m = 'hello world';
 
-        var item = localforage.setItem(s.name, m);
-        item
+        localforage.setItem(s.name, m)
         .then(function() {
 
           var onValueChanged = function(value) {
@@ -52,6 +56,7 @@
 
           s.addEventListener('value-changed', onValueChanged);
 
+          s._setLoaded(false);
           s.load();
 
         });
@@ -64,18 +69,16 @@
         var m = 'foo';
 
         s.value = m;
-        s.save()
+        s.save(true)
         .then(function() {
-
-          localforage.getItem(s.name)
-          .then(function(storedValue) {
-            expect(storedValue).to.be.equal(m);
-            done();
-          })
-          .catch(function(e) {
-            done(e);
-          });
-
+          return localforage.getItem(s.name)
+        })
+        .then(function(storedValue) {
+          expect(storedValue).to.be.equal(m);
+          done();
+        })
+        .catch(function(e) {
+          done(e);
         });
 
       });
@@ -84,9 +87,14 @@
 
     suite('objects', function() {
 
-      setup(function() {
-        localStorage.clear();
-        localforage.clear();
+      setup(function(done) {
+        Promise.all([
+          localStorage.clear(),
+          localforage.clear()
+        ])
+        .then(function() {
+          done();
+        });
       });
 
       test('can be stored', function(done) {
@@ -96,20 +104,21 @@
           foo: 'bar'
         };
 
+        var onValueChanged = function() {
+          expect(s.value).to.be.deep.equal(m);
+          s.removeEventListener('value-changed', onValueChanged);
+          done();
+        };
+
+        s.addEventListener('value-changed', onValueChanged);
+
         localforage.setItem(s.name, m)
         .then(function() {
-
-          var onValueChanged = function() {
-            expect(s.value).to.be.deep.equal(m);
-            s.removeEventListener('value-changed', onValueChanged);
-            done();
-          };
-
-          s.addEventListener('value-changed', onValueChanged);
-
-          s.load();
-
-        })
+          setTimeout(function() {
+            s._setLoaded(false);
+            s.load('test');
+          });
+        });
 
       });
 
@@ -117,9 +126,13 @@
 
     suite('auto-save', function() {
 
-      setup(function() {
-        localStorage.clear();
-        localforage.clear();
+      setup(function(done) {
+        Promise.all([
+          localStorage.clear(),
+          localforage.clear()
+        ]).then(function() {
+          done();
+        });
       });
 
       test('is enabled by disabled', function(done) {
@@ -156,7 +169,7 @@
 
           localforage.getItem(s.name)
           .then(function(storedValue) {
-            expect(storedValue).to.be.equal('null');
+            expect(storedValue).to.not.be.equal(m);
             return s.save();
           })
           .then(function() {
@@ -170,7 +183,11 @@
               done(e);
             });
 
+          })
+          .catch(function(e) {
+            done(e);
           });
+
         }, 100);
 
       });

@@ -36,64 +36,127 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 
   <script>
     var storage;
+    var waitForEvent;
+
+    function waitForNodeEvent(node, eventName) {
+      return new Promise(function(resolve) {
+        var promise = this;
+        var onEvent = function() {
+          var args = arguments;
+          node.removeEventListener(eventName, onEvent);
+          resolve.apply(promise, args);
+        };
+        node.addEventListener(eventName, onEvent);
+      });
+    }
 
     suite('basic', function() {
 
       setup(function() {
-        window.localStorage.setItem('polymer-localforage-test', '{"foo":"bar"}');
-        storage = document.getElementById('fixture').create();
-        storage.flushDebouncer('reload');
+        return localforage.setItem('polymer-localforage-test', '{"foo":"bar"}')
+        .then(function(value) {
+          storage = document.getElementById('fixture').create();
+          waitForEvent = function(eventName) {
+            return waitForNodeEvent(storage, eventName);
+          };
+
+          return waitForEvent('polymer-localforage-load')
+        });
       });
 
-      teardown(function() {
-        window.localStorage.removeItem('polymer-localforage-test');
+      teardown(function(done) {
+        localforage.removeItem('polymer-localforage-test', done);
       });
 
       test('load', function() {
-        assert.isNotNull(storage.value);
-        assert.equal(storage.value.foo, 'bar');
+        return localforage.getItem(storage.name)
+        .then(function() {
+          assert.isNotNull(storage.value);
+          assert.isDefined(storage.value);
+          assert.equal(storage.value.foo, 'bar');
+        });
       });
 
       test('save', function() {
         var newValue = {'foo': 'zot'};
         storage.value = newValue;
-        storage.flushDebouncer('save');
-        var v = window.localStorage.getItem(storage.name);
-        v = JSON.parse(v);
-        assert.equal(v.foo, newValue.foo);
+        
+        return storage.save(true)
+        .then(function() {
+          return localforage.getItem(storage.name)
+          .then(function(v) {
+            v = JSON.parse(v);
+            assert.equal(v.foo, newValue.foo);
+          });
+        });
       });
 
-      test('delete', function() {
+      test('delete', function(done) {
+        waitForEvent('polymer-localforage-saved')
+        .then(function() {
+          localforage.getItem(storage.name)
+          .then(function(v) {
+            assert.equal(v, 'null');
+            waitForEvent('polymer-localforage-saved')
+            .then(function() {
+              localforage.getItem(storage.name)
+              .then(function(v) {
+                assert.isNull(v);
+                done();
+              })
+              .catch(done);
+            });
+            storage.value = undefined;
+            storage.flushDebouncer('save');
+          })
+          .catch(done);
+        });
         storage.value = null;
         storage.flushDebouncer('save');
-        var v = window.localStorage.getItem(storage.name);
-        assert.isNull(v);
-        storage.value = undefined;
-        storage.flushDebouncer('save');
-        var v = window.localStorage.getItem(storage.name);
-        assert.isNull(v);
       });
 
       test('event polymer-localforage-load', function(done) {
-        var ls = document.createElement('polymer-localforage');
-        ls.addEventListener('polymer-localforage-load', function() {
+        var lf = document.createElement('polymer-localforage');
+        lf.addEventListener('polymer-localforage-load-empty', function() {
+          throw new Error('polymer-localforage-load-empty should not be fired');
+        });
+        lf.addEventListener('polymer-localforage-load', function() {
           done();
         });
-        ls.name = 'polymer-localforage-test';
+        lf.name = 'polymer-localforage-test';
       });
 
       test('event polymer-localforage-load-empty', function(done) {
-        window.localStorage.removeItem('polymer-localforage-test');
 
-        var ls = document.createElement('polymer-localforage');
-        ls.addEventListener('polymer-localforage-load-empty', function() {
-          // testing recommended way to initialize localstorage
-          ls.value = "Yo";
-          ls.flushDebouncer('save');
-          assert.equal("Yo", JSON.parse( window.localStorage.getItem('polymer-localforage-test')));
-          done();
+        localforage.removeItem('polymer-localforage-test')
+        .then(function() {
+
+          var lf = document.createElement('polymer-localforage');
+
+          Promise.all([
+            new Promise(function(resolve, reject) {
+              lf.addEventListener('polymer-localforage-load', resolve);
+            }),
+            new Promise(function(resolve, reject) {
+              lf.addEventListener('polymer-localforage-load-empty', resolve);
+            })
+          ])
+          .then(function() {
+            // testing recommended way to initialize localstorage
+            lf.value = "Yo";
+            lf.save()
+            .then(function() {
+              localforage.getItem('polymer-localforage-test')
+              .then(function(storedValue) {
+                assert.equal("Yo", storedValue);
+                done();
+              });
+            });
+          });
+          lf.set('name', 'polymer-localforage-test');
+
         });
-        ls.name = 'polymer-localforage-test';
+
       });
 
       test('auto-save sub-properties', function() {
@@ -101,19 +164,33 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
         var ls = document.querySelector('#boundLocal');
         var value = { foo: 'FOO', bar: 'BAR' };
         t.value = value;
-        assert.equal('FOO', ls.value.foo); // value has propagated from template to storage
 
-        ls.flushDebouncer('save');
-        t.value.foo = "Yo";
-        ls.flushDebouncer('save');
-        var item = JSON.parse( window.localStorage.getItem('polymer-localforage-test'));
-        assert.notEqual('Yo', item.foo); // did not propagate because did not use setters
+        return ls.load()
+        .then(function() {
+          assert.equal('FOO', ls.value.foo); // value has propagated from template to storage
 
-        t.set('value.foo', 'BAZ!');
-        ls.flushDebouncer('save');
-        var item = JSON.parse( window.localStorage.getItem('polymer-localforage-test'));
-        assert.equal('BAZ!', item.foo); // did propagate
-        ls.value = null;
+          t.value.foo = "Yo";
+          return ls.load();
+        })
+        .then(function() {
+          return localforage.getItem('polymer-localforage-test')
+        })
+        .then(function(storedItem) {
+          var item = JSON.parse(storedItem);
+          assert.notEqual('Yo', item.foo); // did not propagate because did not use setters
+
+          t.set('value.foo', 'BAZ!');
+          return ls.save('true');
+        })
+        .then(function() {
+          return localforage.getItem('polymer-localforage-test')
+        })
+        .then(function(storedItem) {
+          var item = JSON.parse(storedItem);
+          assert.equal('BAZ!', item.foo); // did propagate
+          ls.value = null;
+        });
+        
       });
 
     });
