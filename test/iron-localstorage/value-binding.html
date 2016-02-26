@@ -1,0 +1,117 @@
+<!doctype html>
+<!--
+@license
+Copyright (c) 2015 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>polymer-localforage-value-binding</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+
+  <script src="./../../webcomponentsjs/webcomponents.js"></script>
+  <script src="./../../web-component-tester/browser.js"></script>
+  <script src="./../../test-fixture/test-fixture-mocha.js"></script>
+
+  <link rel="import" href="../../polymer-localforage.html">
+
+</head>
+<body>
+
+  <dom-module id="x-foo">
+    <template>
+      <div>{{value.foo}}</div>
+    </template>
+  </dom-module>
+
+  <dom-module id="x-test">
+    <template>
+      <x-foo value="{{value}}"></x-foo>
+      <polymer-localforage id="localstorage" name="polymer-localforage-test" value="{{value}}"></polymer-localforage>
+    </template>
+  </dom-module>
+
+  <x-test></x-test>
+
+  <script>
+
+    var xtest;
+
+    suite('basic', function() {
+
+      suiteSetup(function(done) {
+
+        Polymer({
+          is: 'x-foo',
+          properties: {
+            'value': {
+              type: Object,
+              notify: true
+            }
+          }
+        });
+        Polymer({
+          is: 'x-test',
+          properties: {
+            'value': {
+              type: Object,
+              notify: true
+            }
+          }
+        });
+        localforage.setItem('polymer-localforage-test', '{"foo":"bar"}')
+        .then(function() {
+          xtest = document.querySelector('x-test');
+          xtest.$.localstorage.reload()
+          .then(function() {
+            done();
+          });
+        });
+
+      });
+
+      suiteTeardown(function() {
+        localforage.removeItem('polymer-localforage-test');
+      });
+
+      test('initial value', function() {
+        assert.isNotNull(xtest.value);
+        assert.equal(xtest.value.foo, 'bar');
+      });
+
+      test('set value', function() {
+        var newValue = {'foo': 'zot'};
+        xtest.value = newValue;
+        return xtest.$.localstorage.save(true)
+        .then(function() {
+          return localforage.getItem(xtest.$.localstorage.name);
+        })
+        .then(function(v) {
+          v = JSON.parse(v);
+          assert.equal(v.foo, newValue.foo);
+        });
+      });
+
+      test('save', function() {
+        xtest.value.foo = 'quux';
+        return xtest.$.localstorage.save()
+        .then(function() {
+          return localforage.getItem(xtest.$.localstorage.name);
+        })
+        .then(function(v) {
+          v = JSON.parse(v);
+          assert.equal(v.foo, 'quux');
+        });
+      });
+
+    });
+
+  </script>
+
+</body>
+</html>

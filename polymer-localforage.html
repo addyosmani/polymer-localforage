@@ -69,7 +69,6 @@ license that can be found in the LICENSE file.
          */
         value: {
           type: Object,
-          value: null,
           notify: true
         },
         /**
@@ -93,45 +92,139 @@ license that can be found in the LICENSE file.
         autoSaveDisabled: {
           type: Boolean,
           value: false
+        },
+        /**
+         * Tracks if element was loaded
+         *
+         * @attribute autoSaveDisabled
+         * @type boolean
+         * @default false
+         */
+        loaded: {
+          type: Boolean,
+          value: false,
+          readOnly: true,
+          notify: true
         }
+
       },
 
       observers: [
-        'valueChanged(value)'
+        '_valueChanged(value)',
+        '_nameChanged(name)'
       ],
 
-      valueChanged: function() {
-        console.log('SAVE!', this.loaded, this.autoSaveDisabled);
+      ready: function() {
+        this._updateCurrentName();
+      },
+
+      _updateCurrentName: function() {
+        if(!this.name) {
+          return false;
+        }
+
+        var match = (this.currentName === this.name);
+        this.currentName = this.name;
+        return !match;
+      },
+
+      _valueChanged: function() {
         if (!this.autoSaveDisabled) {
           this.save();
         }
       },
 
+      _nameChanged: function() {
+        if(!this.name || !this.name.length) {
+          return;
+        }
+
+        if(this._updateCurrentName()) {
+          this.reload()
+        }
+      },
+
+      _onLoad: function() {
+        var self = this;
+        var args = arguments;
+
+        setTimeout(function() { // localforage is not ready during the same tick
+          self._setLoaded(true);
+          if(self.value === null || self.value === 'null' || self.value === undefined) {
+            self.fire('polymer-localforage-load-empty');
+          }
+          self.fire('polymer-localforage-load', {
+            name: self.name, 
+            value: self.value
+          });
+        });
+      },
+
+      reload: function() {
+        this._setLoaded(false);
+        return this.load();
+      },
+
       load: function() {
         var self = this;
-        localforage.getItem(this.name)
-        .then(function(v) {
-          if (self.useRaw) {
-            self.setAttribute('value', v);
-          } else {
-            // localforage has a flaw that makes it difficult to determine
-            // if a key actually exists or not (getItem returns null if the
-            // key doesn't exist, which is not distinguishable from a stored
-            // null value)
-            // however, if not `useRaw`, an (unparsed) null value unambiguously
-            // signals that there is no value in storage (a stored null value would
-            // be escaped, i.e. "null")
-            // in self case we save any non-null current (default) value
-            if (v === null) {
-              if (self.value !== null) {
-                self.save();
-              }
-            } else {
-              self.value = v;
-              self.dispatchEvent(new CustomEvent('value-changed'));
+        var name = this.name;
+
+        if(!name || !name.length) {
+          return;
+        }
+
+        return new Promise(function(resolve, reject) {
+
+          localforage.getItem(name)
+          .then(function(v) {
+
+            if(self.loaded === true) {
+              return resolve();
             }
-          }
-          self.setAttribute('loaded', true);
+
+            if (self.useRaw) {
+              self.set('value', v);
+              self._onLoad('null');
+              resolve();
+            } else {
+              // localforage has a flaw that makes it difficult to determine
+              // if a key actually exists or not (getItem returns null if the
+              // key doesn't exist, which is not distinguishable from a stored
+              // null value)
+              // however, if not `useRaw`, an (unparsed) null value unambiguously
+              // signals that there is no value in storage (a stored null value would
+              // be escaped, i.e. "null")
+              // in self case we save any non-null current (default) value
+              if (v === null) {
+                if ((self.value !== null) && (self.value !== undefined) && !self.autoSaveDisabled) {
+                  self.save()
+                  .then(function() {
+                    self._onLoad();
+                    resolve();
+                  })
+                  .catch(reject);
+                } else {
+                  self._onLoad();
+                  resolve();
+                }
+              } else {
+                try { // parse value as JSON
+                  v = JSON.parse(v);
+                } catch(e) {
+                } finally {
+                  self.set('value', v);
+                }
+                self._onLoad();
+                resolve();
+              }
+            }
+
+          });
+
+
+        })
+        .catch(function(e) {
+          console.error(e);
         });
       },
 
@@ -140,15 +233,44 @@ license that can be found in the LICENSE file.
        *
        * @method save
        */
-      save: function() {
-        var v;
+      _save: function() {
+        var v, self = this;
         if(this.useRaw || (typeof(this.value) === 'string')) {
           v = this.value;
         } else {
-          v = JSON.stringify(this.value)
+          v = JSON.stringify(this.value);
         }
-        return localforage.setItem(this.name, v);
+        this.cancelDebouncer('save');
+        return new Promise(function(resolve, reject) {
+          localforage.setItem(self.name, v)
+          .then(function(value) {
+            self._setLoaded(true);
+            self.fire('polymer-localforage-saved', value);
+            resolve(value);
+          })
+          .catch(reject);
+        });
+      },
+
+      save: function(flush) {
+        var self = this;
+        return new Promise(function(resolve, reject) {
+          self.debounce('save', function() {
+            this._save()
+            .then(function(value) {
+              resolve(value);
+            })
+            .catch(function(e) {
+              reject(e);
+            });
+          });
+          if(!!flush) {
+            self.flushDebouncer('save');
+          }
+        });
       }
+
     });
+
   </script>
 </dom-module>
